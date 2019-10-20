@@ -1,0 +1,1 @@
+./tools/Nuclei/openocd/0.10.0-13/bin/openocd -f openocd_gdlink.cfg
