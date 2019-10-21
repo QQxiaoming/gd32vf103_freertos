@@ -261,7 +261,7 @@ service_loop:
   //------This special CSR read/write operation, which is actually Claim the CLIC to find its pending highest
   // ID, if the ID is not 0, then automatically enable the mstatus.MIE, and jump to its vector-entry-label, and
   // update the link register 
-  csrrw ra, CSR_JALMNXTI, ra 
+  csrrw ra, CSR_JALMNXTI, ra  //执行这条指令时，cpu会跳转到中断向量表对应中断位置执行，完成后退出到这里
   
   //RESTORE_CONTEXT_EXCPT_X5
 

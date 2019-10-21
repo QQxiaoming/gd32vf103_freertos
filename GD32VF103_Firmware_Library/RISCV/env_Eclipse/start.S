@@ -166,36 +166,41 @@ _start:
 
 	csrc CSR_MSTATUS, MSTATUS_MIE
 	/* Jump to logical address first to ensure correct operation of RAM region  */
-    la		a0,	_start
-    li		a1,	1
-	slli	a1,	a1, 29
-    bleu	a1, a0, _start0800
-    srli	a1,	a1, 2
-    bleu	a1, a0, _start0800
-    la		a0,	_start0800
-    add		a0, a0, a1
-	jr      a0
+    la		a0,	_start          //a0 = _start
+    li		a1,	1               //a1 = 1
+	slli	a1,	a1, 29          //a1 = 0x20000000 raw起始地址
+    bleu	a1, a0, _start0800  //if( a1 <= a0 ) JUMP _start0800
+    srli	a1,	a1, 2           //a1 = 0x08000000 flash起始地址
+    bleu	a1, a0, _start0800  //if( a1 <= a0 ) JUMP _start0800
+    la		a0,	_start0800      //a0 = _start0800
+    add		a0, a0, a1          //a0 = a0+a1
+	jr      a0                  //JUMP a0
 
 _start0800:
 
     /* Set the the NMI base to share with mtvec by setting CSR_MMISC_CTL */
-    li t0, 0x200
-    csrs CSR_MMISC_CTL, t0
+    li t0, 0x200              //t0 = 0x200
+    csrs CSR_MMISC_CTL, t0    //mmisc_ctl |= 0x200 CSR_MMISC_CTL[9]：设置NMI的地址与mtvec相同且，mcause.EXCCODE = 0xfff
+                              //cs开头的指令是特有的用来操作内核寄存器的的指令，内核寄存器是一组特有的12位地址
 
 	/* Intial the mtvt*/
-    la t0, vector_base
-    csrw CSR_MTVT, t0
+    la t0, vector_base        //t0 = vector_base 向量表地址
+    csrw CSR_MTVT, t0         //mtvt = vector_base 中断向量表基地址
 
 	/* Intial the mtvt2 and enable it*/
-    la t0, irq_entry
-    csrw CSR_MTVT2, t0
-    csrs CSR_MTVT2, 0x1
+    la t0, irq_entry          //t0 = irq_entry     irq_entry定义在entry.S,有freertos操作系统情况下定义在portasm.S
+    csrw CSR_MTVT2, t0        //mtvt2 = irq_entry  mtvt2[31:2]: 中断入口函数地址
+    csrs CSR_MTVT2, 0x1       //mtvt2 |= 0x1       mtvt2[0]:    1配置mtvt2的配置有效，配0则为mtvec内地址
 
     /* Intial the CSR MTVEC for the Trap ane NMI base addr*/
-    la t0, trap_entry
-    csrw CSR_MTVEC, t0
+    la t0, trap_entry         //t0 = trap_entry     trap_entry定义在entry.S,有freertos操作系统情况下定义在portasm.S
+    csrw CSR_MTVEC, t0        //mtvec = trap_entry  mtvec[31:6]：异常入口地址 
+                              //                    mtvec[5:0]：0B00011 -- ECLIC中断模式 其他：默认模式
+                              // 这里配置为默认模式
+                              // trap_entry基本上可以理解为arm里的hard/mem/use/svc等fault了，
+                              // 这里在移植freertos时就使用了 ecall 进入trap_entry里 相当于arm里的PendSVC
 
-#ifdef __riscv_flen
+#ifdef __riscv_flen          //浮点宏
 	/* Enable FPU */
 	li t0, MSTATUS_FS
 	csrs mstatus, t0
