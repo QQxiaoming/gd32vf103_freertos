@@ -38,7 +38,7 @@ LD        = $(PREFIX)ld
 HEX       = $(OBJCOPY) -O ihex
 BIN       = $(OBJCOPY) -O binary -S
 #GDB       = $(PREFIX)gdb
-GDB       = /opt/riscv-none-eabi-insight/bin/riscv-none-eabi-insight
+GDB       = /opt/riscv-none-eabi-insight/bin/riscv-none-eabi-insight #使用insight代替gdb来调试
 
 #######################################
 # paths

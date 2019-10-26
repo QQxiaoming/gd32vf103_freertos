@@ -20,11 +20,10 @@ ssize_t _write(int fd, const void* ptr, size_t len) {
 //	if (isatty(fd)) 
 	{
 		for (size_t jj = 0; jj < len; jj++) {
-			_put_char(current[jj]);
-
 			if (current[jj] == '\n') {
 				_put_char('\r');
 			}
+			_put_char(current[jj]);
 		}
 		return len;
 	}
@@ -32,9 +31,6 @@ ssize_t _write(int fd, const void* ptr, size_t len) {
 	return _stub(EBADF);
 }
 
-int puts(const char* string) {
-	return _write(0, (const void *) string, strlen(string));
-}
 
 int _put_char(int ch)
 {
