@@ -10,14 +10,8 @@
  */
 
 #include "gd32vf103.h"
-#include "gd32vf103c_start.h"
-#include "systick.h"
-
 #include "FreeRTOS.h" 
-#include "task.h"     
-#include "queue.h"    
-#include "timers.h"   
-#include "semphr.h"   
+#include "task.h"
 
 
 void task1(void *p)

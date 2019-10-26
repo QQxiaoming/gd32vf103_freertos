@@ -4,7 +4,7 @@
 
 		.section .init
 	
-    .weak  eclic_msip_handler
+    .weak  eclic_msip_handler                 //弱定义函数，这些在编译为bin后可以看到将全部为0
     .weak  eclic_mtip_handler
     .weak  eclic_bwei_handler
     .weak  eclic_pmovi_handler
@@ -69,8 +69,8 @@
     .weak  CAN1_EWMC_IRQHandler
     .weak  USBFS_IRQHandler
 
-vector_base:
-    j _start
+vector_base:                            //中断向量表
+    j _start                            //第一条指令即跳转到_start处开始执行
     .align    2
     .word     0
     .word     0
@@ -164,7 +164,7 @@ vector_base:
 
 _start:
 
-	csrc CSR_MSTATUS, MSTATUS_MIE
+	csrc CSR_MSTATUS, MSTATUS_MIE  //CSR_MSTATUS &= ~0x8 mstatus[3]:0屏蔽全部中断 1不屏蔽全部中断 （当然这里全部中断是除过不可屏蔽中断）
 	/* Jump to logical address first to ensure correct operation of RAM region  */
     la		a0,	_start          //a0 = _start
     li		a1,	1               //a1 = 1
@@ -202,62 +202,79 @@ _start0800:
 
 #ifdef __riscv_flen          //浮点宏
 	/* Enable FPU */
-	li t0, MSTATUS_FS
-	csrs mstatus, t0
-	csrw fcsr, x0
+	li t0, MSTATUS_FS        //t0 = 0x6000
+	csrs mstatus, t0         //mstatus |= 0x6000  mstatus[14:13]:非零值启用浮点单元，配置为1或2会在第一次使用浮点单元时变为3，这里直接配置为3
+	csrw fcsr, x0            //fcsr = x0 = 0 ??这里x0是否指的是zero通用寄存器值? 这个寄存器0-4位是浮点异常状态标志，5-7位是浮点舍入模式配置
 #endif
 
 .option push
 .option norelax
-	la gp, __global_pointer$
+	la gp, __global_pointer$ //__global_pointer$定义在link连接脚本内，指向所有.data段后偏移0x800的地址,0x800为2K，其值源于下文解释
+                             //gp 意为global pointer （全局指针）寄存器是一个解决方案，
+                             //为了以进一步优化存储器访问单个4KB区域内。
+                             //链接器使用__global_pointer$符号定义来比较内存地址，如果在范围内，
+                             //则它将绝对/相对pc寻址替换为gp相对寻址，从而使代码更有效。这个过程通过-Wl,--no-relax选项使用。
+                             //这里.option norelax起到-Wl,--no-relax作用，就不需要在编译选项添加了
+                             //上文参考自：https://gnu-mcu-eclipse.github.io/arch/riscv/programmer/#the-gp-global-pointer-register
+                             //要让 relaxing 优化起作用，编译时要加入 -msmall-data-limit=n 参数，有了这个参数，
+                             //编译器会把内存空间小于 n 字节的静态变量放入 .sdata 或者 .sdata.* 节，
+                             //然后链接器将这部分静态变量集中在 __global_pointer$ +/- 2K 的范围内。
+                             //上文参考自：https://blog.csdn.net/zoomdy/article/details/100703451
 .option pop
-	la sp, _sp
+	la sp, _sp               //sp = 主栈栈顶地址 _sp定义在link连接脚本内
 
 	/* Load data section */
-	la a0, _data_lma
-	la a1, _data
-	la a2, _edata
-	bgeu a1, a2, 2f
+	la a0, _data_lma         //a0 = data的Load Memory Address          _data_lma定义在link连接脚本内
+	la a1, _data             //a1 = data的Run Memory Address           _data定义在link连接脚本内
+	la a2, _edata            //a2 = data的Run Memory Address结束地址   _edata定义在link连接脚本内
+	bgeu a1, a2, 2f          //if( a1 >= a2 ) JUMP 2f 原则上不会出现_data地址大于_edata地址
+                             //如果出现了则直接跳转到 2f 即下一个2标签 
 1:
-	lw t0, (a0)
-	sw t0, (a1)
-	addi a0, a0, 4
-	addi a1, a1, 4
-	bltu a1, a2, 1b
+	lw t0, (a0)              //t0 = _data_lma
+	sw t0, (a1)              //*_data = t0      即 *_data_lma，按word写入
+	addi a0, a0, 4           //a0 = a0 + 4   下一个ward
+	addi a1, a1, 4           //a1 = a1 + 4
+	bltu a1, a2, 1b          //if( a1 < a2 ) JUMP 1b 如果未到达_edata则跳转到 1b 即上一个1标签，这里会完成一个循环
 2:
 	/* Clear bss section */
-	la a0, __bss_start
-	la a1, _end
-	bgeu a0, a1, 2f
+	la a0, __bss_start       //a0 = __bss_start 初值为0的全局变量段起始地址   __bss_start定义在link连接脚本内
+	la a1, _end              //a1 = _end 初值为0的全局变量段结束地址          _end定义在link连接脚本内
+	bgeu a0, a1, 2f          //if( a0 >= a1 ) JUMP 2f 原则上不会出现__bss_start地址大于_end地址
+                             //如果出现了则直接跳转到 2f 即下一个2标签 
 1:
-	sw zero, (a0)
-	addi a0, a0, 4
-	bltu a0, a1, 1b
+	sw zero, (a0)            //*__bss_start = zero = 0      bss段清除为0
+	addi a0, a0, 4           //a0 = a0 + 4   下一个ward
+	bltu a0, a1, 1b          //if( a0 < a1 ) JUMP 1b 如果未到达_end则跳转到 1b 即上一个1标签，这里会完成一个循环
+
+                             //程序执行到这里全局变量就以及处理完毕了
 2:
 	/*enable mcycle_minstret*/
-    csrci CSR_MCOUNTINHIBIT, 0x5
+    csrci CSR_MCOUNTINHIBIT, 0x5       //CSR_MCOUNTINHIBIT &= ~0x5 这里清零了第0bit和第1bit，使能了mcycle计数和minstret计数
+                                       //csrci这条指令处理立即数5bit，列如0x5只是0B00101，高位不处理
 	/* Call global constructors */
-	la a0, __libc_fini_array
-	call atexit
-	call __libc_init_array
+	la a0, __libc_fini_array           //a0 = __libc_fini_array       newlib中atexit函数的参数
+	call atexit                        //调用newlib中的 void atexit(void (*func)(void)) 函数
+                                       //功能为注册main函数结束后调用的函数，这里是__libc_fini_array
+	call __libc_init_array             //调用newlib中的 void __libc_init_array (void) 函数
+                                       //这里要注意__libc_init_array函数会调用_init的钩子函数，用来做c环境初始化前的一些硬件初始化
+                                       //列如时钟的配置等，这里_init定义在init.c
 
-
+                             //程序执行到这里C/C++环境就初始化完成了，可以进入main函数入口了
 	/* argc = argv = 0 */
-	li a0, 0
-	li a1, 0
-	call main
-	tail exit
+	li a0, 0                 //a0 = 0 main函数参数argc = 0
+	li a1, 0                 //a1 = 0 main函数参数argv = 0
+	call main                //调用 int main(int argc,char **argv) 函数
+	tail exit                //main返回后调用newlib的exit函数, tail指令应该是不会返回的调用函数了
 
 1:
-	j 1b
+	j 1b                       //1b 即上一次1标签，即跳转到自己，程序到这里就死循环了，原则不会运行到这里
 	
 	.global disable_mcycle_minstret
 disable_mcycle_minstret:
-        csrsi CSR_MCOUNTINHIBIT, 0x5
+        csrsi CSR_MCOUNTINHIBIT, 0x5     //关闭了mcycle计数和minstret计数
 	ret
 
 	.global enable_mcycle_minstret
 enable_mcycle_minstret:
-        csrci CSR_MCOUNTINHIBIT, 0x5
+        csrci CSR_MCOUNTINHIBIT, 0x5     //使能了mcycle计数和minstret计数
 	ret
-

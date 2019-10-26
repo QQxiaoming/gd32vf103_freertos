@@ -70,6 +70,8 @@
 #ifndef FREERTOS_CONFIG_H
 #define FREERTOS_CONFIG_H
 
+#include "gd32vf103.h"
+
 /* Here is a good place to include header files that are required across
 your application. */
 
@@ -78,9 +80,9 @@ your application. */
 #define configUSE_PREEMPTION                    1
 #define configUSE_PORT_OPTIMISED_TASK_SELECTION 0
 #define configUSE_TICKLESS_IDLE                 0
-#define configCPU_CLOCK_HZ                      108000000
-#define configRTC_CLOCK_HZ						27000000
-#define configTICK_RATE_HZ                      200
+#define configCPU_CLOCK_HZ                      ((uint32_t)SystemCoreClock)
+#define configRTC_CLOCK_HZ						((uint32_t)TIMER_FREQ)
+#define configTICK_RATE_HZ                      500
 #define configMAX_PRIORITIES                    4
 #define configMINIMAL_STACK_SIZE                450
 #define configMAX_TASK_NAME_LEN                 16

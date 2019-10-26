@@ -60,7 +60,6 @@ C_SOURCES =  \
 		${wildcard $(TOP_DIR)/GD32VF103_Firmware_Library/RISCV/drivers/*.c} \
 		${wildcard $(TOP_DIR)/GD32VF103_Firmware_Library/RISCV/env_Eclipse/*.c} \
 		${wildcard $(TOP_DIR)/GD32VF103_Firmware_Library/RISCV/stubs/*.c} \
-		${wildcard $(TOP_DIR)/Utilities/*.c} \
 		${wildcard $(TOP_DIR)/freertos/*.c} \
 		${wildcard $(TOP_DIR)/freertos/portable/GCC/N200/*.c} \
 		${wildcard $(TOP_DIR)/freertos/portable/MemMang/heap_4.c} \
@@ -81,24 +80,39 @@ PERIFLIB_SOURCES =
 # CFLAGS
 #######################################
 # cpu
+# 可选 rv32i[m][a][f[d]][c]
+#      rv32g[c]
+#  	   rv64i[m][a][f[d]][c]
+#      rv64g[c]
+#      i为通用指令，m为整数乘法法指令，a为原子操作指令，f为单精度浮点指令，d为双精度浮点指令，c为16位压缩指令
+#      imafd合称g，即通用组合指令
+# GD32的cpu指令集为rv32imac
 CPU = -march=rv32imac
-# fpu
-FPU =
-# int-abi
-INT-ABI = -mabi=ilp32
-# float-abi
-FLOAT-ABI =
+# abi
+# 可选 ilp32
+#      ilp32f
+#      ilp32d
+#      lp64
+#      lp64f
+#      lp64d
+#      ilp32代表int、long为32位
+#      lp64代表int为32位，long为64位
+#      f为单精度浮点abi，d为双精度浮点abi
+# GD32应使用ilp32
+ABI = -mabi=ilp32
 # mcu
-MCU = $(CPU) $(FPU) $(INT-ABI) $(FLOAT-ABI) -mcmodel=medlow -msmall-data-limit=8 -fmessage-length=0 -fsigned-char
+MCU = $(CPU) $(ABI) -mcmodel=medlow -msmall-data-limit=8 -fmessage-length=0 -fsigned-char
 
 # macros for gcc
 # AS defines
 AS_DEFS = \
-		-DGD32VF103C_START
+		-DGD32VF103C_START \
+		-DUSE_STDPERIPH_DRIVER
 
 # C defines
 C_DEFS = \
-		-DGD32VF103C_START
+		-DGD32VF103C_START \
+		-DUSE_STDPERIPH_DRIVER
 
 # AS includes
 AS_INCLUDES = \
@@ -109,7 +123,6 @@ C_INCLUDES = \
 		-I $(TOP_DIR)/GD32VF103_Firmware_Library/GD32VF103_standard_peripheral  \
 		-I $(TOP_DIR)/GD32VF103_Firmware_Library/GD32VF103_standard_peripheral/Include  \
 		-I $(TOP_DIR)/GD32VF103_Firmware_Library/RISCV/drivers  \
-		-I $(TOP_DIR)/Utilities  \
 		-I $(TOP_DIR)/freertos/include \
 		-I $(TOP_DIR)/freertos/portable/GCC/N200 \
 		-I $(TOP_DIR)/Application
