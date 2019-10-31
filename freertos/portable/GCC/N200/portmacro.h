@@ -145,7 +145,7 @@ extern void vPortClearInterruptMask( int uxSavedStatusValue ); //in port.c
 /* Scheduler utilities. */
 /* the return after the ECALL is VERY important */
 
-#define portYIELD() ECALL(PORT_YIELD);
+#define portYIELD() ECALL(PORT_YIELD); //请求切换任务，相当于arm cortex m的PendSVC，会进入trap_entry函数，定义在portasm.S
 
 #define portYIELD_FROM_ISR(x)  if(x!=0)  {portYIELD();   printf("portYIELD \n");}
        

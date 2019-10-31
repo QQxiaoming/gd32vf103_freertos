@@ -130,11 +130,11 @@ unsigned long ulSynchTrap(unsigned long mcause, unsigned long sp, unsigned long 
 				//always yield from machine mode
 				//fix up mepc on sync trap
 				unsigned long epc = read_csr(mepc);
-				vPortYield(sp,epc+4); //never returns
+				vPortYield(sp,epc+4); //切换任务
 				
 			} else if(arg1==PORT_YIELD_TO_RA)	{
 			
-				vPortYield(sp,(*(unsigned long*)(sp+1*sizeof(sp)))); //never returns
+				vPortYield(sp,(*(unsigned long*)(sp+1*sizeof(sp)))); //切换任务
 			}
 			
 			break;
@@ -262,9 +262,6 @@ void prvTaskExitError( void )
 uint32_t vPortSysTickHandler(){
 	static uint64_t then = 0;
 	
-  //eclic_disable_interrupt(CLIC_INT_TMR);
-	
-
     volatile uint64_t * mtime       = (uint64_t*) (TIMER_CTRL_ADDR + TIMER_MTIME);
     volatile uint64_t * mtimecmp    = (uint64_t*) (TIMER_CTRL_ADDR + TIMER_MTIMECMP);
 	
@@ -281,7 +278,6 @@ uint32_t vPortSysTickHandler(){
 	if( xTaskIncrementTick() != pdFALSE )
 	{
 		portYIELD();
-		//vTaskSwitchContext();
 	}
 	
 }
@@ -290,24 +286,19 @@ uint32_t vPortSysTickHandler(){
 
 void vPortSetupTimer()	{
     uint8_t mtime_intattr;
-    // Set the machine timer
-    //Bob: update it to TMR
-    //volatile uint64_t * mtime       = (uint64_t*) (CLINT_CTRL_ADDR + CLINT_MTIME);
-    //volatile uint64_t * mtimecmp    = (uint64_t*) (CLINT_CTRL_ADDR + CLINT_MTIMECMP);
+    
+	/* 内核timer定时器使用64位的计数器来实现 */
     volatile uint64_t * mtime       = (uint64_t*) (TIMER_CTRL_ADDR + TIMER_MTIME);
     volatile uint64_t * mtimecmp    = (uint64_t*) (TIMER_CTRL_ADDR + TIMER_MTIMECMP);
-    uint64_t now = *mtime;
-    uint64_t then = now + (configRTC_CLOCK_HZ / configTICK_RATE_HZ);
-    *mtimecmp = then;
+    uint64_t now = *mtime; //当前计数值
+    uint64_t then = now + (configRTC_CLOCK_HZ / configTICK_RATE_HZ); //计算下一次tick时间
+    *mtimecmp = then;   //写入mtimecmp寄存器
 
-    mtime_intattr=eclic_get_intattr (7);
-    mtime_intattr|=ECLIC_INT_ATTR_SHV;
-    eclic_set_intattr(7,mtime_intattr);
-    eclic_enable_interrupt (7);
-		
-    //eclic_set_nlbits(4);
-    eclic_set_irq_lvl_abs(7,1);
-    //set_csr(mstatus, MSTATUS_MIE);
+    mtime_intattr=eclic_get_intattr (CLIC_INT_TMR); //内核timer中断在eclic管理器中clicintattr寄存的地址的值
+    mtime_intattr|=ECLIC_INT_ATTR_SHV;              //配置为向量模式
+    eclic_set_intattr(CLIC_INT_TMR,mtime_intattr);  //写入寄存器
+	
+	eclic_irq_enable(CLIC_INT_TMR,15,0);            //打开中断 配置优先级为最高（4位优先级组全配置为lvl了）
 }
 /*-----------------------------------------------------------*/
 

@@ -39,6 +39,9 @@ void task2(void *p)
 
 int main(void)
 {  
+    eclic_priority_group_set(ECLIC_PRIGROUP_LEVEL4_PRIO0); //四位优先级组全配置为lvl
+    eclic_global_interrupt_enable();                       //使能全局中断
+
     /* 初始化led PA7 */
     rcu_periph_clock_enable(RCU_GPIOA);
     gpio_init(GPIOA, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_7);

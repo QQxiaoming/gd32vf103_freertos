@@ -324,9 +324,10 @@
 	LOAD t0,  34*REGBYTES(sp)
   	csrw CSR_MSUBM, t0   
 	LOAD t0,  33*REGBYTES(sp)
-  	csrw CSR_MEPC, t0  
+  	csrw CSR_MEPC, t0             //第一次启动调度时被恢复成了任务入口地址
   	LOAD t0,  32*REGBYTES(sp)
-  	csrw CSR_MSTATUS, t0 
+  	csrw CSR_MSTATUS, t0          //第一次启动调度时被恢复成了MSTATUS_INIT变量值其中配置了MSTATUS_MPIE，在mret返回时会将MSTATUS_MPIE
+	  							  //更新到MSTATUS_MIE,从而任务第一次运行即立刻开启了全局中断使能       
 .endm
 
 
@@ -460,12 +461,12 @@ MTIME_HANDLER:
 	mret
 
 xPortStartScheduler:
-	jal		vPortSetup
-	portRESTORE_CONTEXT_EXCP 
+	jal		vPortSetup         //配置系统timer启动
+	portRESTORE_CONTEXT_EXCP   //从pxCurrentTCB配置第一个要启动的任务，配置sp、CSR_MSUBM、CSR_MEPC、CSR_MSTATUS值
 	
-	popREGFILE
+	popREGFILE                 //恢复其他通用寄存器，这里会恢复x1寄存器，也就是返回地址将指向prvTaskExitError这是任务退出进入的函数
 	
-	mret
+	mret                       //返回到mepc，而mepc被恢复栈帧时赋值为任务的入口地址port.c的pxPortInitialiseStack函数可以看到栈帧的初始值
 
 
 
@@ -494,6 +495,3 @@ vPortEndScheduler:
 //handle_interrupt:
 //1:
   j 1b
-
-
-
