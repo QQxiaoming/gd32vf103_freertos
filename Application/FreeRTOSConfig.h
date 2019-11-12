@@ -75,16 +75,16 @@
 /* Here is a good place to include header files that are required across
 your application. */
 
-#define USER_MODE_TASKS							0
+#define USER_MODE_TASKS							1
 
 #define configUSE_PREEMPTION                    1
 #define configUSE_PORT_OPTIMISED_TASK_SELECTION 0
 #define configUSE_TICKLESS_IDLE                 0
 #define configCPU_CLOCK_HZ                      ((uint32_t)SystemCoreClock)
 #define configRTC_CLOCK_HZ						((uint32_t)TIMER_FREQ)
-#define configTICK_RATE_HZ                      500
-#define configMAX_PRIORITIES                    4
-#define configMINIMAL_STACK_SIZE                450
+#define configTICK_RATE_HZ                      ( ( TickType_t ) 500 )
+#define configMAX_PRIORITIES                    ( 4 )  //0 - 3 共6等级，idle独占0，Tmr_svc独占3
+#define configMINIMAL_STACK_SIZE                ( ( unsigned short ) 128 )
 #define configMAX_TASK_NAME_LEN                 16
 #define configUSE_16_BIT_TICKS                  0
 #define configIDLE_SHOULD_YIELD                 0
@@ -106,10 +106,10 @@ your application. */
 #define configAPPLICATION_ALLOCATED_HEAP        0
 
 /* Hook function related definitions. */
-#define configUSE_IDLE_HOOK                     1
+#define configUSE_IDLE_HOOK                     0
 #define configUSE_TICK_HOOK                     0
-#define configCHECK_FOR_STACK_OVERFLOW          1
-#define configUSE_MALLOC_FAILED_HOOK            1
+#define configCHECK_FOR_STACK_OVERFLOW          0
+#define configUSE_MALLOC_FAILED_HOOK            0
 #define configUSE_DAEMON_TASK_STARTUP_HOOK      0
 
 /* Run time and task stats gathering related definitions. */
@@ -123,23 +123,19 @@ your application. */
 
 /* Software timer related definitions. */
 #define configUSE_TIMERS                        1
-#define configTIMER_TASK_PRIORITY               3
+#define configTIMER_TASK_PRIORITY               ( configMAX_PRIORITIES - 1 ) //Tmr_svc 独占最高优先级
 #define configTIMER_QUEUE_LENGTH                5
 #define configTIMER_TASK_STACK_DEPTH            configMINIMAL_STACK_SIZE
 
-/* Interrupt nesting behaviour configuration.
-#define configKERNEL_INTERRUPT_PRIORITY         [dependent of processor]
-#define configMAX_SYSCALL_INTERRUPT_PRIORITY    [dependent on processor and application]
-#define configMAX_API_CALL_INTERRUPT_PRIORITY   [dependent on processor and application]
-*/
-#define configMAX_SYSCALL_INTERRUPT_PRIORITY    6
-//#define portCRITICAL_NESTING_IN_TCB				1
+/* Interrupt nesting behaviour configuration. */
+#define configPRIO_BITS       		            (4UL)
+#define configLIBRARY_LOWEST_INTERRUPT_PRIORITY			0x0
+#define configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY	0xe
+#define configKERNEL_INTERRUPT_PRIORITY                 ( configLIBRARY_LOWEST_INTERRUPT_PRIORITY << (8 - configPRIO_BITS) )
+#define configMAX_SYSCALL_INTERRUPT_PRIORITY            ( configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY << (8 - configPRIO_BITS) )
 
 /* Define to trap errors during development. */
 #define configASSERT( x ) if( ( x ) == 0 ) {taskDISABLE_INTERRUPTS(); for( ;; );}
-
-/* FreeRTOS MPU specific definitions. */
-//#define configINCLUDE_APPLICATION_DEFINED_PRIVILEGED_FUNCTIONS 0
 
 /* Optional functions - most linkers will remove unused functions anyway. */
 #define INCLUDE_vTaskPrioritySet                1

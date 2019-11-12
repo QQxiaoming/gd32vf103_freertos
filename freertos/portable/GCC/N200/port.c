@@ -76,10 +76,6 @@
 #include "task.h"
 #include "portmacro.h"
 
-
-
-#include <stdio.h>
-
 #include "n200_func.h"
 #include "riscv_encoding.h"
 #include "n200_timer.h"
@@ -87,8 +83,8 @@
 
 /* Standard Includes */
 #include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
-
 
 
 /* Each task maintains its own interrupt status in the critical nesting
@@ -156,20 +152,20 @@ unsigned long ulSynchTrap(unsigned long mcause, unsigned long sp, unsigned long 
 }
 
 
+//进入临界段
 void vPortEnterCritical( void )
 {
-	//printf("vPortEnterCritical\n");
 	#if USER_MODE_TASKS
-		ECALL(IRQ_DISABLE);
+		ECALL(IRQ_DISABLE); //通过ECALL发送关闭中断请求，会在ulSynchTrap中通过改变mpie之后改变mie关闭全局中断
 	#else
-	//	portDISABLE_INTERRUPTS();
-		eclic_set_mth ((configMAX_SYSCALL_INTERRUPT_PRIORITY)<<4);
+		eclic_set_mth ((configMAX_SYSCALL_INTERRUPT_PRIORITY)|0xf); //通过eclic的mth寄存器来屏蔽除255之外其他优先级的中断，这个寄存器类似cortex-m里的base_pri
 	#endif
 
 	uxCriticalNesting++;
 }
 /*-----------------------------------------------------------*/
 
+//退出临界段
 void vPortExitCritical( void )
 {
 	configASSERT( uxCriticalNesting );
@@ -177,10 +173,9 @@ void vPortExitCritical( void )
 	if( uxCriticalNesting == 0 )
 	{
 		#if USER_MODE_TASKS
-			ECALL(IRQ_ENABLE);
+			ECALL(IRQ_ENABLE);    //通过ECALL发送打开中断请求，会在ulSynchTrap中通过改变mpie之后改变mie开启全局中断
 		#else
-			eclic_set_mth (0); 
-	//	portENABLE_INTERRUPTS()	;
+			eclic_set_mth (0);    //通过eclic的mth寄存器Wi为0解除中断屏蔽
 		#endif
 	}
 	return;
@@ -194,8 +189,6 @@ void vPortExitCritical( void )
 void vPortClearInterruptMask(int int_mask)
 {
 	eclic_set_mth (int_mask); 
-
-	
 }
 /*-----------------------------------------------------------*/
 
@@ -205,7 +198,7 @@ int xPortSetInterruptMask()
 	int int_mask=0;
 	int_mask=eclic_get_mth();
 	
-	eclic_set_mth ((configMAX_SYSCALL_INTERRUPT_PRIORITY)<<4);
+	eclic_set_mth ((configMAX_SYSCALL_INTERRUPT_PRIORITY)|0xf);
 	return int_mask;
 }
 
@@ -218,7 +211,7 @@ StackType_t *pxPortInitialiseStack( StackType_t *pxTopOfStack, TaskFunction_t px
 	/* Simulate the stack frame as it would be created by a context switch
 	interrupt. */
 
-	register int *tp asm("x3");
+	//register int *tp asm("x3");
 	pxTopOfStack--;
 	*pxTopOfStack = (portSTACK_TYPE)pxCode;			/* Start address */
 
@@ -249,32 +242,32 @@ void prvTaskExitError( void )
 	defined, then stop here so application writers can catch the error. */
 	configASSERT( uxCriticalNesting == ~0UL );
 	portDISABLE_INTERRUPTS();
-//	printf ("prvTaskExitError\n");
 	for( ;; );
 }
 /*-----------------------------------------------------------*/
 
 
 
-/*Entry Point for Machine Timer Interrupt Handler*/
-//Bob: add the function argument int_num
 
-uint32_t vPortSysTickHandler(){
+/* 由于该中断配置为向量模式，则中断到来会调用portasm.S的MTIME_HANDLER,进行栈帧保存之后该函数会调用vPortSysTickHandler*/
+void vPortSysTickHandler(){
 	static uint64_t then = 0;
 	
+	/* 内核timer定时器使用64位的计数器来实现 */
     volatile uint64_t * mtime       = (uint64_t*) (TIMER_CTRL_ADDR + TIMER_MTIME);
     volatile uint64_t * mtimecmp    = (uint64_t*) (TIMER_CTRL_ADDR + TIMER_MTIMECMP);
 	
 	if(then != 0)  {
-		//next timer irq is 1 second from previous
+		//增加到下一次的计数值
 		then += (configRTC_CLOCK_HZ / configTICK_RATE_HZ);
-	} else{ //first time setting the timer
-		uint64_t now = *mtime;
-		then = now + (configRTC_CLOCK_HZ / configTICK_RATE_HZ);
+	} else{
+		// 第一次进入该中断
+		uint64_t now = *mtime;//当前计数值
+		then = now + (configRTC_CLOCK_HZ / configTICK_RATE_HZ); //计算下一次tick时间
 	}
-	*mtimecmp = then;
+	*mtimecmp = then;//写入mtimecmp寄存器
 
-	/* Increment the RTOS tick. */
+	/* 调用freertos的tick增加接口 */
 	if( xTaskIncrementTick() != pdFALSE )
 	{
 		portYIELD();
@@ -298,7 +291,7 @@ void vPortSetupTimer()	{
     mtime_intattr|=ECLIC_INT_ATTR_SHV;              //配置为向量模式
     eclic_set_intattr(CLIC_INT_TMR,mtime_intattr);  //写入寄存器
 	
-	eclic_irq_enable(CLIC_INT_TMR,15,0);            //打开中断 配置优先级为最高（4位优先级组全配置为lvl了）
+	eclic_irq_enable(CLIC_INT_TMR,configKERNEL_INTERRUPT_PRIORITY>>4,0);  //打开中断 配置优先级为最高（4位优先级组全配置为lvl了）
 }
 /*-----------------------------------------------------------*/
 

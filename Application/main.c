@@ -8,7 +8,7 @@
  * @copyright Copyright (c) 2019
  * 
  */
-
+#include <stdio.h>
 #include "gd32vf103.h"
 #include "FreeRTOS.h" 
 #include "task.h"
@@ -31,7 +31,7 @@ void task2(void *p)
     {
         vTaskList(taskStatus);
         printf("\nTaskName\tStatus\tPRI\tStack\tTaskNumber\n%s",taskStatus);
-        printf("current tick is %d\n",xTaskGetTickCount());
+        printf("current tick is %ld\n",xTaskGetTickCount());
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
