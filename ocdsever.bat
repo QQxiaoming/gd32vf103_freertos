@@ -1,0 +1,1 @@
+"D:\OpenOCD\bin\openocd.exe" -f openocd_gdlink.cfg
