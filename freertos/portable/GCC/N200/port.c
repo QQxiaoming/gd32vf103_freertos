@@ -152,6 +152,28 @@ unsigned long ulSynchTrap(unsigned long mcause, unsigned long sp, unsigned long 
 }
 
 
+void set_msip_int(void)
+{
+  *(volatile uint8_t *) (TIMER_CTRL_ADDR + TIMER_MSIP) |=0x01;
+}
+
+void clear_msip_int(void)
+{
+  *(volatile uint8_t *) (TIMER_CTRL_ADDR + TIMER_MSIP) &= ~0x01;
+}
+
+
+unsigned long taskswitch( unsigned long sp, unsigned long arg1)	{
+	
+	//always yield from machine mode
+	//fix up mepc on 
+	unsigned long epc = read_csr(mepc);
+	vPortYield(sp,epc); //never returns
+
+	return sp;
+}
+
+
 //进入临界段
 void vPortEnterCritical( void )
 {
@@ -277,7 +299,7 @@ void vPortSysTickHandler(){
 /*-----------------------------------------------------------*/
 
 
-void vPortSetupTimer()	{
+void vPortSetupTimer(void)	{
     uint8_t mtime_intattr;
     
 	/* 内核timer定时器使用64位的计数器来实现 */
@@ -293,12 +315,19 @@ void vPortSetupTimer()	{
 	
 	eclic_irq_enable(CLIC_INT_TMR,configKERNEL_INTERRUPT_PRIORITY>>4,0);  //打开中断 配置优先级为最高（4位优先级组全配置为lvl了）
 }
+
+void vPortSetupMSIP(void){
+	eclic_set_irq_lvl_abs(CLIC_INT_SFT,1);
+	eclic_set_vmode(CLIC_INT_SFT);
+    eclic_enable_interrupt (CLIC_INT_SFT);
+}
 /*-----------------------------------------------------------*/
 
 
 void vPortSetup()	{
 
 	vPortSetupTimer();
+	vPortSetupMSIP();
 	uxCriticalNesting = 0;
 }
 /*-----------------------------------------------------------*/

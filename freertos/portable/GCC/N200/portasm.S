@@ -453,11 +453,34 @@ MTIME_HANDLER:
 	
 	csrs CSR_MSTATUS, MSTATUS_MIE  
 	jal		vPortSysTickHandler
-	csrc CSR_MSTATUS, MSTATUS_MIE  
+	 
 
 	portRESTORE_CONTEXT_IRQ
 	popREGFILE
 	
+	mret
+
+.align 2
+.globl MSIP_HANDLER
+
+MSIP_HANDLER:
+
+	
+	/* Check for interrupt */
+	pushREGFILE
+	portSAVE_CONTEXT_IRQ
+
+	/* pass sp in a0 */
+	mv a0,sp
+	csrs CSR_MSTATUS, MSTATUS_MIE
+	call clear_msip_int
+	jal taskswitch
+	csrc CSR_MSTATUS, MSTATUS_MIE 
+	/*  adjust stack pointer back to where it was prior to ulSynchTrap  */
+//	mv		sp,a0
+	portRESTORE_CONTEXT_IRQ
+	popREGFILE
+
 	mret
 
 xPortStartScheduler:
