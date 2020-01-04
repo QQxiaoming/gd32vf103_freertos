@@ -500,7 +500,7 @@ vPortYield:
 	portSAVE_CONTEXT_EXCP
 
 	STORE	a1, 33 * REGBYTES(sp)
-	jal		vTaskSwitchContext
+	jal		vDoTaskSwitchContext
 
 	portRESTORE_CONTEXT_EXCP
 	popREGFILE  

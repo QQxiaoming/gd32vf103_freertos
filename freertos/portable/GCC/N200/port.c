@@ -172,6 +172,15 @@ unsigned long taskswitch( unsigned long sp, unsigned long arg1)	{
 
 	return sp;
 }
+/*-----------------------------------------------------------*/
+
+
+void vDoTaskSwitchContext(void){
+	eclic_set_mth ((configMAX_SYSCALL_INTERRUPT_PRIORITY)|0xf);
+	vTaskSwitchContext();
+	eclic_set_mth (0);
+}
+/*-----------------------------------------------------------*/
 
 
 //进入临界段
@@ -272,29 +281,22 @@ void prvTaskExitError( void )
 
 
 /* 由于该中断配置为向量模式，则中断到来会调用portasm.S的MTIME_HANDLER,进行栈帧保存之后该函数会调用vPortSysTickHandler*/
-void vPortSysTickHandler(){
-	static uint64_t then = 0;
-	
+void vPortSysTickHandler(){	
 	/* 内核timer定时器使用64位的计数器来实现 */
     volatile uint64_t * mtime       = (uint64_t*) (TIMER_CTRL_ADDR + TIMER_MTIME);
     volatile uint64_t * mtimecmp    = (uint64_t*) (TIMER_CTRL_ADDR + TIMER_MTIMECMP);
 	
-	if(then != 0)  {
-		//增加到下一次的计数值
-		then += (configRTC_CLOCK_HZ / configTICK_RATE_HZ);
-	} else{
-		// 第一次进入该中断
-		uint64_t now = *mtime;//当前计数值
-		then = now + (configRTC_CLOCK_HZ / configTICK_RATE_HZ); //计算下一次tick时间
-	}
-	*mtimecmp = then;//写入mtimecmp寄存器
+	UBaseType_t uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
+	uint64_t now = *mtime; //当前计数值
+    uint64_t then = now + (configRTC_CLOCK_HZ / configTICK_RATE_HZ); //计算下一次tick时间
+    *mtimecmp = then;   //写入mtimecmp寄存器
 
 	/* 调用freertos的tick增加接口 */
 	if( xTaskIncrementTick() != pdFALSE )
 	{
 		portYIELD();
 	}
-	
+	portCLEAR_INTERRUPT_MASK_FROM_ISR(uxSavedInterruptStatus);
 }
 /*-----------------------------------------------------------*/
 
