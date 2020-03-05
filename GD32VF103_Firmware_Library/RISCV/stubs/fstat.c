@@ -7,10 +7,11 @@
 
 int _fstat(int fd, struct stat* st)
 {
-  if (isatty(fd)) {
-    st->st_mode = S_IFCHR;
-    return 0;
-  }
+    if (isatty(fd)) 
+    {
+        st->st_mode = S_IFCHR;
+        return 0;
+    }
 
-  return _stub(EBADF);
+    return _stub(EBADF);
 }

@@ -199,6 +199,10 @@ _start0800:
                               // 这里配置为默认模式
                               // trap_entry基本上可以理解为arm里的hard/mem/use/svc等fault了，
                               // 这里在移植freertos时就使用了 ecall 进入trap_entry里 相当于arm里的PendSVC
+	
+    /* OS启动前配置中断栈为FHEAP的end地址 */
+	la t0, ucHeap
+	csrw CSR_MSCRATCH, t0
 
 #ifdef __riscv_flen          //浮点宏
 	/* Enable FPU */

@@ -165,10 +165,11 @@ SECTIONS
   . = ALIGN(8);
   PROVIDE( _end = . ); /*0X2000,0340*/
   PROVIDE( end = . );
+  PROVIDE( heap_start = . );
 
   .stack ORIGIN(ram) + LENGTH(ram) - __stack_size :
   {
-    PROVIDE( _heap_end = . ); 
+    PROVIDE( heap_end = . ); 
     . = __stack_size;  
     PROVIDE( _sp = . ); 
   } >ram AT>ram 

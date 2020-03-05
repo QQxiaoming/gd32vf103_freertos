@@ -63,6 +63,10 @@ C_SOURCES =  \
 		${wildcard $(TOP_DIR)/freertos/*.c} \
 		${wildcard $(TOP_DIR)/freertos/portable/GCC/N200/*.c} \
 		${wildcard $(TOP_DIR)/freertos/portable/MemMang/heap_4.c} \
+		${wildcard $(TOP_DIR)/SEGGER/*.c} \
+		${wildcard $(TOP_DIR)/SEGGER/FreeRTOSV10/*.c} \
+		${wildcard $(TOP_DIR)/SEGGER/FreeRTOSV10/Config/*.c} \
+		${wildcard $(TOP_DIR)/SEGGER/port/*.c} \
 		${wildcard $(TOP_DIR)/Application/*.c} \
 
 # ASM sources
@@ -125,6 +129,10 @@ C_INCLUDES = \
 		-I $(TOP_DIR)/GD32VF103_Firmware_Library/RISCV/drivers  \
 		-I $(TOP_DIR)/freertos/include \
 		-I $(TOP_DIR)/freertos/portable/GCC/N200 \
+		-I $(TOP_DIR)/SEGGER  \
+		-I $(TOP_DIR)/SEGGER/Config  \
+		-I $(TOP_DIR)/SEGGER/FreeRTOSV10  \
+		-I $(TOP_DIR)/SEGGER/port  \
 		-I $(TOP_DIR)/Application
 
 

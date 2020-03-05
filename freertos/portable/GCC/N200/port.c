@@ -1,77 +1,3 @@
-/*
-    FreeRTOS V9.0.0 - Copyright (C) 2016 Real Time Engineers Ltd.
-    All rights reserved
-
-    VISIT http://www.FreeRTOS.org TO ENSURE YOU ARE USING THE LATEST VERSION.
-
-    This file is part of the FreeRTOS distribution.
-
-    FreeRTOS is free software; you can redistribute it and/or modify it under
-    the terms of the GNU General Public License (version 2) as published by the
-    Free Software Foundation >>>> AND MODIFIED BY <<<< the FreeRTOS exception.
-
-    ***************************************************************************
-    >>!   NOTE: The modification to the GPL is included to allow you to     !<<
-    >>!   distribute a combined work that includes FreeRTOS without being   !<<
-    >>!   obliged to provide the source code for proprietary components     !<<
-    >>!   outside of the FreeRTOS kernel.                                   !<<
-    ***************************************************************************
-
-    FreeRTOS is distributed in the hope that it will be useful, but WITHOUT ANY
-    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-    FOR A PARTICULAR PURPOSE.  Full license text is available on the following
-    link: http://www.freertos.org/a00114.html
-
-    ***************************************************************************
-     *                                                                       *
-     *    FreeRTOS provides completely free yet professionally developed,    *
-     *    robust, strictly quality controlled, supported, and cross          *
-     *    platform software that is more than just the market leader, it     *
-     *    is the industry's de facto standard.                               *
-     *                                                                       *
-     *    Help yourself get started quickly while simultaneously helping     *
-     *    to support the FreeRTOS project by purchasing a FreeRTOS           *
-     *    tutorial book, reference manual, or both:                          *
-     *    http://www.FreeRTOS.org/Documentation                              *
-     *                                                                       *
-    ***************************************************************************
-
-    http://www.FreeRTOS.org/FAQHelp.html - Having a problem?  Start by reading
-    the FAQ page "My application does not run, what could be wrong?".  Have you
-    defined configASSERT()?
-
-    http://www.FreeRTOS.org/support - In return for receiving this top quality
-    embedded software for free we request you assist our global community by
-    participating in the support forum.
-
-    http://www.FreeRTOS.org/training - Investing in training allows your team to
-    be as productive as possible as early as possible.  Now you can receive
-    FreeRTOS training directly from Richard Barry, CEO of Real Time Engineers
-    Ltd, and the world's leading authority on the world's leading RTOS.
-
-    http://www.FreeRTOS.org/plus - A selection of FreeRTOS ecosystem products,
-    including FreeRTOS+Trace - an indispensable productivity tool, a DOS
-    compatible FAT file system, and our tiny thread aware UDP/IP stack.
-
-    http://www.FreeRTOS.org/labs - Where new FreeRTOS products go to incubate.
-    Come and try FreeRTOS+TCP, our new open source TCP/IP stack for FreeRTOS.
-
-    http://www.OpenRTOS.com - Real Time Engineers ltd. license FreeRTOS to High
-    Integrity Systems ltd. to sell under the OpenRTOS brand.  Low cost OpenRTOS
-    licenses offer ticketed support, indemnification and commercial middleware.
-
-    http://www.SafeRTOS.com - High Integrity Systems also provide a safety
-    engineered and independently SIL3 certified version for use in safety and
-    mission critical applications that require provable dependability.
-
-    1 tab == 4 spaces!
-*/
-
-/*-----------------------------------------------------------
- * Implementation of functions defined in portable.h for the ARM CM3 port.
- *----------------------------------------------------------*/
-
-/* Scheduler includes. */
 #include "FreeRTOS.h"
 #include "task.h"
 #include "portmacro.h"
@@ -86,15 +12,24 @@
 #include <stdio.h>
 #include <unistd.h>
 
+/* use SystemView include */
+#include "SYSVIEW_Serial_Conf.h"
 
-/* Each task maintains its own interrupt status in the critical nesting
-variable. */
+/* Each task maintains its own interrupt status in the critical nesting variable. */
 UBaseType_t uxCriticalNesting = 0xaaaaaaaa;
 
 #if USER_MODE_TASKS
+#ifdef __riscv_flen
+	unsigned long MSTATUS_INIT = (MSTATUS_MPIE | (0x1 << 13));
+#else
 	unsigned long MSTATUS_INIT = (MSTATUS_MPIE);
+#endif
+#else
+#ifdef __riscv_flen
+	unsigned long MSTATUS_INIT = (MSTATUS_MPP | MSTATUS_MPIE | (0x1 << 13));
 #else
 	unsigned long MSTATUS_INIT = (MSTATUS_MPP | MSTATUS_MPIE);
+#endif
 #endif
 
 
@@ -104,44 +39,51 @@ UBaseType_t uxCriticalNesting = 0xaaaaaaaa;
 static void prvTaskExitError( void );
 
 
-/*-----------------------------------------------------------*/
-
-/* System Call Trap */
-//ECALL macro stores argument in a2
-unsigned long ulSynchTrap(unsigned long mcause, unsigned long sp, unsigned long arg1)	{
-	
-	switch(mcause&0X00000fff)	{
+/**
+ * @brief System Call Trap
+ * 
+ * @param mcause csr
+ * @param sp 触发系统调用时的栈地址
+ * @param arg1 ECALL macro stores argument in a2
+ * @return unsigned long 传入的sp
+ */
+unsigned long ulSynchTrap(unsigned long mcause, unsigned long sp, unsigned long arg1)
+{
+	switch(mcause&0X00000fff)	
+	{
 		//on User and Machine ECALL, handler the request
 		case 8:
 		case 11:
-			if(arg1==IRQ_DISABLE)	{
+		{
+			if(arg1==IRQ_DISABLE)	
+			{
 				//zero out mstatus.mpie
 				clear_csr(mstatus,MSTATUS_MPIE);
-      
-			} else if(arg1==IRQ_ENABLE)	{
+			}
+			else if(arg1==IRQ_ENABLE)	
+			{
 				//set mstatus.mpie
 				set_csr(mstatus,MSTATUS_MPIE);
-
-			} else if(arg1==PORT_YIELD)		{
+			} 
+			else if(arg1==PORT_YIELD)		
+			{
 				//always yield from machine mode
 				//fix up mepc on sync trap
 				unsigned long epc = read_csr(mepc);
-				vPortYield(sp,epc+4); //切换任务
-				
-			} else if(arg1==PORT_YIELD_TO_RA)	{
-			
-				vPortYield(sp,(*(unsigned long*)(sp+1*sizeof(sp)))); //切换任务
+				vPortYield_from_ulSynchTrap(sp,epc+4);
 			}
-			
+			else if(arg1==PORT_YIELD_TO_RA)	
+			{
+				vPortYield_from_ulSynchTrap(sp,(*(unsigned long*)(sp+1*sizeof(sp))));
+			}
 			break;
+		}
 		default:
-			write(1, "trap\n", 5);
-            
-                printf("In trap handler, the mcause is %ld\n",(mcause&0X00000fff) );
-                printf("In trap handler, the mepc is 0x%lx\n", read_csr(mepc));
-                printf("In trap handler, the mtval is 0x%lx\n", read_csr(mbadaddr));
-              
-			_exit(mcause);
+		{
+			/* 异常处理 */
+			extern uintptr_t handle_trap(uintptr_t mcause, uintptr_t sp);
+			handle_trap(mcause,sp);
+		}
 	}
 
 	//fix mepc and return 
@@ -150,21 +92,43 @@ unsigned long ulSynchTrap(unsigned long mcause, unsigned long sp, unsigned long 
 	write_csr(mepc,epc+4);
 	return sp;
 }
+/*-----------------------------------------------------------*/
 
 
-void set_msip_int(void)
+/**
+ * @brief 设置触发软中断
+ * @note 目的是在软中断内进行任务上下文切换
+ * 
+ */
+void vPortSetMSIPInt(void)
 {
-  *(volatile uint8_t *) (TIMER_CTRL_ADDR + TIMER_MSIP) |=0x01;
+	*(volatile uint8_t *) (TIMER_CTRL_ADDR + TIMER_MSIP) |=0x01;
+	__asm volatile("fence");
+	__asm volatile("fence.i");
 }
+/*-----------------------------------------------------------*/
 
-void clear_msip_int(void)
+
+/**
+ * @brief 清除软中断
+ * 
+ */
+void vPortClearMSIPInt(void)
 {
-  *(volatile uint8_t *) (TIMER_CTRL_ADDR + TIMER_MSIP) &= ~0x01;
+	*(volatile uint8_t *) (TIMER_CTRL_ADDR + TIMER_MSIP) &= ~0x01;
 }
+/*-----------------------------------------------------------*/
 
 
-unsigned long taskswitch( unsigned long sp, unsigned long arg1)	{
-	
+/**
+ * @brief 执行任务上下文切换,在portasm.S中被调用
+ * 
+ * @param sp 触发任务切换时的栈地址
+ * @param arg1 
+ * @return unsigned long sp地址
+ */
+unsigned long taskswitch( unsigned long sp, unsigned long arg1)
+{
 	//always yield from machine mode
 	//fix up mepc on 
 	unsigned long epc = read_csr(mepc);
@@ -175,28 +139,40 @@ unsigned long taskswitch( unsigned long sp, unsigned long arg1)	{
 /*-----------------------------------------------------------*/
 
 
-void vDoTaskSwitchContext(void){
-	eclic_set_mth ((configMAX_SYSCALL_INTERRUPT_PRIORITY)|0xf);
+/**
+ * @brief 调研freertos内建函数vTaskSwitchContext,在portasm.S中被调用
+ * 
+ */
+void vDoTaskSwitchContext( void )
+{
+	portDISABLE_INTERRUPTS();
 	vTaskSwitchContext();
-	eclic_set_mth (0);
+	portENABLE_INTERRUPTS();
 }
 /*-----------------------------------------------------------*/
 
 
-//进入临界段
+/**
+ * @brief 进入临界段
+ * 
+ */
 void vPortEnterCritical( void )
 {
 	#if USER_MODE_TASKS
-		ECALL(IRQ_DISABLE); //通过ECALL发送关闭中断请求，会在ulSynchTrap中通过改变mpie之后改变mie关闭全局中断
+		ECALL(IRQ_DISABLE);
 	#else
-		eclic_set_mth ((configMAX_SYSCALL_INTERRUPT_PRIORITY)|0xf); //通过eclic的mth寄存器来屏蔽除255之外其他优先级的中断，这个寄存器类似cortex-m里的base_pri
+		portDISABLE_INTERRUPTS();
 	#endif
 
 	uxCriticalNesting++;
 }
 /*-----------------------------------------------------------*/
 
-//退出临界段
+
+/**
+ * @brief 退出临界段
+ * 
+ */
 void vPortExitCritical( void )
 {
 	configASSERT( uxCriticalNesting );
@@ -204,9 +180,9 @@ void vPortExitCritical( void )
 	if( uxCriticalNesting == 0 )
 	{
 		#if USER_MODE_TASKS
-			ECALL(IRQ_ENABLE);    //通过ECALL发送打开中断请求，会在ulSynchTrap中通过改变mpie之后改变mie开启全局中断
+			ECALL(IRQ_ENABLE);
 		#else
-			eclic_set_mth (0);    //通过eclic的mth寄存器Wi为0解除中断屏蔽
+			portENABLE_INTERRUPTS();
 		#endif
 	}
 	return;
@@ -214,47 +190,65 @@ void vPortExitCritical( void )
 /*-----------------------------------------------------------*/
 
 
-/*-----------------------------------------------------------*/
-
-/* Clear current interrupt mask and set given mask */
+/**
+ * @brief Clear current interrupt mask and set given mask
+ * 
+ * @param int_mask mth值
+ */
 void vPortClearInterruptMask(int int_mask)
 {
 	eclic_set_mth (int_mask); 
 }
 /*-----------------------------------------------------------*/
 
-/* Set interrupt mask and return current interrupt enable register */
-int xPortSetInterruptMask()
+
+/**
+ * @brief Set interrupt mask and return current interrupt enable register
+ * 
+ * @return int 
+ */
+int xPortSetInterruptMask(void)
 {
 	int int_mask=0;
 	int_mask=eclic_get_mth();
 	
-	eclic_set_mth ((configMAX_SYSCALL_INTERRUPT_PRIORITY)|0xf);
+	portDISABLE_INTERRUPTS();
 	return int_mask;
 }
-
 /*-----------------------------------------------------------*/
-/*
- * See header file for description.
+
+
+/**
+ * @brief 初始化任务栈帧
+ * 
+ * @param pxTopOfStack 栈顶
+ * @param pxCode 任务入口
+ * @param pvParameters 任务参数
+ * @return StackType_t* 完成初始化后的栈顶
  */
 StackType_t *pxPortInitialiseStack( StackType_t *pxTopOfStack, TaskFunction_t pxCode, void *pvParameters )
 {
 	/* Simulate the stack frame as it would be created by a context switch
 	interrupt. */
+#ifdef __riscv_flen
+	pxTopOfStack -= 32;                               /* 浮点寄存器 */
+#endif
 
-	//register int *tp asm("x3");
 	pxTopOfStack--;
-	*pxTopOfStack = (portSTACK_TYPE)pxCode;			/* Start address */
+	*pxTopOfStack = 0xb8000000;			              /* CSR_MCAUSE */
 
-	//set the initial mstatus value
 	pxTopOfStack--;
-	*pxTopOfStack = MSTATUS_INIT;
+	*pxTopOfStack = 0x40;      			              /* CSR_SUBM */
+
+	pxTopOfStack--;
+	*pxTopOfStack = (portSTACK_TYPE)pxCode;			  /* Start address */
+
+	pxTopOfStack--;
+	*pxTopOfStack = MSTATUS_INIT;                     /* CSR_MSTATUS */
 
 	pxTopOfStack -= 22;
-	*pxTopOfStack = (portSTACK_TYPE)pvParameters;	/* Register a0 */
-	//pxTopOfStack -= 7;
-	//*pxTopOfStack = (portSTACK_TYPE)tp; /* Register thread pointer */
-	//pxTopOfStack -= 2;
+	*pxTopOfStack = (portSTACK_TYPE)pvParameters;	  /* Register a0 */
+
 	pxTopOfStack -=9;
 	*pxTopOfStack = (portSTACK_TYPE)prvTaskExitError; /* Register ra */
 	pxTopOfStack--;
@@ -264,6 +258,10 @@ StackType_t *pxPortInitialiseStack( StackType_t *pxTopOfStack, TaskFunction_t px
 /*-----------------------------------------------------------*/
 
 
+/**
+ * @brief 任务退出函数
+ * 
+ */
 void prvTaskExitError( void )
 {
 	/* A function that implements a task must not exit or attempt to return to
@@ -278,56 +276,86 @@ void prvTaskExitError( void )
 /*-----------------------------------------------------------*/
 
 
-
-
-/* 由于该中断配置为向量模式，则中断到来会调用portasm.S的MTIME_HANDLER,进行栈帧保存之后该函数会调用vPortSysTickHandler*/
-void vPortSysTickHandler(){	
-	/* 内核timer定时器使用64位的计数器来实现 */
+/**
+ * @brief tick中断
+ * @note 由于该中断配置为向量模式，则中断到来会调用portasm.S的MTIME_HANDLER,进行栈帧保存之后该函数会调用vPortSysTickHandler
+ * 
+ */
+void vPortSysTickHandler(void)
+{
     volatile uint64_t * mtime       = (uint64_t*) (TIMER_CTRL_ADDR + TIMER_MTIME);
     volatile uint64_t * mtimecmp    = (uint64_t*) (TIMER_CTRL_ADDR + TIMER_MTIMECMP);
 	
 	UBaseType_t uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
-	uint64_t now = *mtime; //当前计数值
-    uint64_t then = now + (configRTC_CLOCK_HZ / configTICK_RATE_HZ); //计算下一次tick时间
-    *mtimecmp = then;   //写入mtimecmp寄存器
+
+	#if CONFIG_SYSTEMVIEW_EN
+	traceISR_ENTER();
+	#endif
+
+	uint64_t now = *mtime;
+	now += (configRTC_CLOCK_HZ / configTICK_RATE_HZ);
+	*mtimecmp = now;
 
 	/* 调用freertos的tick增加接口 */
 	if( xTaskIncrementTick() != pdFALSE )
 	{
+		#if CONFIG_SYSTEMVIEW_EN
+		traceISR_EXIT_TO_SCHEDULER();
+		#endif
 		portYIELD();
 	}
-	portCLEAR_INTERRUPT_MASK_FROM_ISR(uxSavedInterruptStatus);
+	#if CONFIG_SYSTEMVIEW_EN
+	else
+	{
+		traceISR_EXIT();
+	}
+	#endif
+
+	portCLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptStatus );
 }
 /*-----------------------------------------------------------*/
 
 
-void vPortSetupTimer(void)	{
-    uint8_t mtime_intattr;
-    
+/**
+ * @brief 初始化tick
+ * 
+ */
+void vPortSetupTimer(void)
+{
 	/* 内核timer定时器使用64位的计数器来实现 */
     volatile uint64_t * mtime       = (uint64_t*) (TIMER_CTRL_ADDR + TIMER_MTIME);
     volatile uint64_t * mtimecmp    = (uint64_t*) (TIMER_CTRL_ADDR + TIMER_MTIMECMP);
-    uint64_t now = *mtime; //当前计数值
-    uint64_t then = now + (configRTC_CLOCK_HZ / configTICK_RATE_HZ); //计算下一次tick时间
-    *mtimecmp = then;   //写入mtimecmp寄存器
 
-    mtime_intattr=eclic_get_intattr (CLIC_INT_TMR); //内核timer中断在eclic管理器中clicintattr寄存的地址的值
-    mtime_intattr|=ECLIC_INT_ATTR_SHV;              //配置为向量模式
-    eclic_set_intattr(CLIC_INT_TMR,mtime_intattr);  //写入寄存器
-	
-	eclic_irq_enable(CLIC_INT_TMR,configKERNEL_INTERRUPT_PRIORITY>>4,0);  //打开中断 配置优先级为最高（4位优先级组全配置为lvl了）
-}
+	portENTER_CRITICAL();
+    uint64_t now = *mtime;
+    now += (configRTC_CLOCK_HZ / configTICK_RATE_HZ);
+    *mtimecmp = now;
+	portEXIT_CRITICAL();
 
-void vPortSetupMSIP(void){
-	eclic_set_irq_lvl_abs(CLIC_INT_SFT,1);
-	eclic_set_vmode(CLIC_INT_SFT);
-    eclic_enable_interrupt (CLIC_INT_SFT);
+	eclic_set_vmode(CLIC_INT_TMR);
+	eclic_irq_enable(CLIC_INT_TMR,configKERNEL_INTERRUPT_PRIORITY>>configPRIO_BITS,0);
 }
 /*-----------------------------------------------------------*/
 
 
-void vPortSetup()	{
+/**
+ * @brief 初始化软中断
+ * 
+ */
+void vPortSetupMSIP(void)
+{
+	eclic_set_vmode(CLIC_INT_SFT);
+	eclic_irq_enable(CLIC_INT_SFT,configKERNEL_INTERRUPT_PRIORITY>>configPRIO_BITS,0);
+}
+/*-----------------------------------------------------------*/
 
+
+/**
+ * @brief 调度启动前的初始化准备
+ * 
+ */
+void vPortSetup(void)
+{
 	vPortSetupTimer();
 	vPortSetupMSIP();
 	uxCriticalNesting = 0;

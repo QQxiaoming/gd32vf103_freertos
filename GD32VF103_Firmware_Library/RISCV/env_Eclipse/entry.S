@@ -1,286 +1,291 @@
-// See LICENSE for license details
-
-#ifndef ENTRY_S
-#define ENTRY_S
-
 #include "riscv_encoding.h"
 #include "riscv_bits.h"
 #include "n200_eclic.h"
 #include "n200_timer.h"
 
-###############################################
-###############################################
-# Disable Interrupt
-#
-.macro DISABLE_MIE
-  csrc CSR_MSTATUS, MSTATUS_MIE  
-.endm
+#define USE_MSP     1                                      //启用中断栈
 
 
-###############################################
-###############################################
-#Save caller registers
-.macro SAVE_CONTEXT
-
+/**
+ * @brief 压栈通用寄存器
+ * @param x 目标sp寄存器
+ */
+.macro pushREGFILE x
 #ifdef __riscv_flen
-  #if (__riscv_flen==64 )
-    addi sp, sp, -20*REGBYTES - 20*FPREGBYTES
-  #else
-    addi sp, sp, -20*REGBYTES
-  #endif
+	addi \x, \x, -REGBYTES * 68   //36+32
 #else
-  addi sp, sp, -20*REGBYTES
+	addi \x, \x, -REGBYTES * 36
 #endif
-  STORE x1, 0*REGBYTES(sp)
-	STORE x4, 1*REGBYTES(sp)
-	STORE x5, 2*REGBYTES(sp)
-	STORE x6, 3*REGBYTES(sp)
-	STORE x7, 4*REGBYTES(sp)
-	STORE x10, 5*REGBYTES(sp)
-	STORE x11, 6*REGBYTES(sp)
-	STORE x12, 7*REGBYTES(sp)
-	STORE x13, 8*REGBYTES(sp)
-	STORE x14, 9*REGBYTES(sp)
-	STORE x15, 10*REGBYTES(sp)
+	STORE x1, 1 * REGBYTES(\x)
+	STORE x2, 2 * REGBYTES(\x)
+	#STORE x3, 3 * REGBYTES(\x)
+	#STORE x4, 4 * REGBYTES(\x)
+	STORE x5, 5 * REGBYTES(\x)
+	STORE x6, 6 * REGBYTES(\x)
+	STORE x7, 7 * REGBYTES(\x)
+	STORE x8, 8 * REGBYTES(\x)
+	STORE x9, 9 * REGBYTES(\x)
+	STORE x10, 10 * REGBYTES(\x)
+	STORE x11, 11 * REGBYTES(\x)
+	STORE x12, 12 * REGBYTES(\x)
+	STORE x13, 13 * REGBYTES(\x)
+	STORE x14, 14 * REGBYTES(\x)
+	STORE x15, 15 * REGBYTES(\x)
 #ifndef __riscv_32e
-  STORE x16, 11*REGBYTES(sp)
-	STORE x17, 12*REGBYTES(sp)
-	STORE x28, 13*REGBYTES(sp)
-	STORE x29, 14*REGBYTES(sp)
-	STORE x30, 15*REGBYTES(sp)
-	STORE x31, 16*REGBYTES(sp)
+	STORE x16, 16 * REGBYTES(\x)
+	STORE x17, 17 * REGBYTES(\x)
+	STORE x18, 18 * REGBYTES(\x)
+	STORE x19, 19 * REGBYTES(\x)
+	STORE x20, 20 * REGBYTES(\x)
+	STORE x21, 21 * REGBYTES(\x)
+	STORE x22, 22 * REGBYTES(\x)
+	STORE x23, 23 * REGBYTES(\x)
+	STORE x24, 24 * REGBYTES(\x)
+	STORE x25, 25 * REGBYTES(\x)
+	STORE x26, 26 * REGBYTES(\x)
+	STORE x27, 27 * REGBYTES(\x)
+	STORE x28, 28 * REGBYTES(\x)
+	STORE x29, 29 * REGBYTES(\x)
+	STORE x30, 30 * REGBYTES(\x)
+	STORE x31, 31 * REGBYTES(\x)
 #endif
-
-#ifdef __riscv_flen
-  #if (__riscv_flen == 64)
-  FPSTORE f0, (20*REGBYTES + 0*FPREGBYTES)(sp)
-	FPSTORE f1, (20*REGBYTES + 1*FPREGBYTES)(sp)
-	FPSTORE f2, (20*REGBYTES + 2*FPREGBYTES)(sp)
-	FPSTORE f3, (20*REGBYTES + 3*FPREGBYTES)(sp)
-	FPSTORE f4, (20*REGBYTES + 4*FPREGBYTES)(sp)
-	FPSTORE f5, (20*REGBYTES + 5*FPREGBYTES)(sp)
-	FPSTORE f6, (20*REGBYTES + 6*FPREGBYTES)(sp)
-	FPSTORE f7, (20*REGBYTES + 7*FPREGBYTES)(sp)
-	FPSTORE f10, (20*REGBYTES + 8*FPREGBYTES)(sp)
-	FPSTORE f11, (20*REGBYTES + 9*FPREGBYTES)(sp)
-	FPSTORE f12, (20*REGBYTES + 10*FPREGBYTES)(sp)
-	FPSTORE f13, (20*REGBYTES + 11*FPREGBYTES)(sp)
-	FPSTORE f14, (20*REGBYTES + 12*FPREGBYTES)(sp)
-	FPSTORE f15, (20*REGBYTES + 13*FPREGBYTES)(sp)
-	FPSTORE f16, (20*REGBYTES + 14*FPREGBYTES)(sp)
-	FPSTORE f17, (20*REGBYTES + 15*FPREGBYTES)(sp)
-	FPSTORE f28, (20*REGBYTES + 16*FPREGBYTES)(sp)
-	FPSTORE f29, (20*REGBYTES + 17*FPREGBYTES)(sp)
-	FPSTORE f30, (20*REGBYTES + 18*FPREGBYTES)(sp)
-	FPSTORE f31, (20*REGBYTES + 19*FPREGBYTES)(sp)   
-  #endif    
-#endif
-
-
 .endm
 
 
-###############################################
-###############################################
-#restore caller registers
-.macro RESTORE_CONTEXT
-  LOAD x1, 0*REGBYTES(sp)
-	LOAD x4, 1*REGBYTES(sp)
-	LOAD x5, 2*REGBYTES(sp)
-	LOAD x6, 3*REGBYTES(sp)
-	LOAD x7, 4*REGBYTES(sp)
-	LOAD x10, 5*REGBYTES(sp)
-	LOAD x11, 6*REGBYTES(sp)
-	LOAD x12, 7*REGBYTES(sp)
-	LOAD x13, 8*REGBYTES(sp)
-	LOAD x14, 9*REGBYTES(sp)
-	LOAD x15, 10*REGBYTES(sp)
+/**
+ * @brief 压栈csr寄存器（CSR_MSTATUS、CSR_MEPC、CSR_MSUBM、CSR_MCAUSE）
+ * @param x 目标sp寄存器
+ */
+.macro portSAVE_CONTEXT_EXCP x
+	csrr t0, CSR_MSTATUS
+	STORE t0, 32 * REGBYTES(\x)
+	csrr t0, CSR_MEPC  
+	STORE t0, 33 * REGBYTES(\x)
+	csrr t0, CSR_MSUBM  
+	STORE t0, 34 * REGBYTES(\x)
+	csrr t0, CSR_MCAUSE
+	STORE t0, 35 * REGBYTES(\x)
+.endm
+
+
+/**
+ * @brief 压栈浮点寄存器
+ * @param x 目标sp寄存器
+ */
+.macro popVFPREGFILE x
+	flw	f0, 36 * REGBYTES(\x)
+	flw	f1, 37 * REGBYTES(\x)
+	flw	f2, 38 * REGBYTES(\x)
+	flw	f3, 39 * REGBYTES(\x)
+	flw	f4, 40 * REGBYTES(\x)
+	flw	f5, 41 * REGBYTES(\x)
+	flw	f6, 42 * REGBYTES(\x)
+	flw	f7, 43 * REGBYTES(\x)
+	flw	f8, 44 * REGBYTES(\x)
+	flw	f9, 45 * REGBYTES(\x)
+	flw	f10,46 * REGBYTES(\x)
+	flw	f11, 47 * REGBYTES(\x)
+	flw	f12, 48 * REGBYTES(\x)
+	flw	f13, 49 * REGBYTES(\x)
+	flw	f14, 50 * REGBYTES(\x)
+	flw	f15, 51 * REGBYTES(\x)
+	flw	f16, 52 * REGBYTES(\x)
+	flw	f17, 53 * REGBYTES(\x)
+	flw	f18, 54 * REGBYTES(\x)
+	flw	f19, 55 * REGBYTES(\x)
+	flw	f20, 56 * REGBYTES(\x)
+	flw	f21, 57 * REGBYTES(\x)
+	flw	f22, 58 * REGBYTES(\x)
+	flw	f23, 59 * REGBYTES(\x)
+	flw	f24, 60 * REGBYTES(\x)
+	flw	f25, 61 * REGBYTES(\x)
+	flw	f26, 62 * REGBYTES(\x)
+	flw	f27, 63 * REGBYTES(\x)
+	flw	f28, 64 * REGBYTES(\x)
+	flw	f29, 65 * REGBYTES(\x)
+	flw	f30, 66 * REGBYTES(\x)
+	flw	f31, 67 * REGBYTES(\x)
+.endm
+
+
+/**
+ * @brief 出栈通用寄存器
+ * @param x 目标sp寄存器
+ */
+.macro popREGFILE x
+	LOAD x1, 1 * REGBYTES(\x)
+	#LOAD x2, 2 * REGBYTES(\x)
+	#LOAD x3, 3 * REGBYTES(\x)
+	#LOAD x4, 4 * REGBYTES(\x)
+	LOAD x5, 5 * REGBYTES(\x)
+	LOAD x6, 6 * REGBYTES(\x)
+	LOAD x7, 7 * REGBYTES(\x)
+	LOAD x8, 8 * REGBYTES(\x)
+	LOAD x9, 9 * REGBYTES(\x)
+	LOAD x10, 10 * REGBYTES(\x)
+	LOAD x11, 11 * REGBYTES(\x)
+	LOAD x12, 12 * REGBYTES(\x)
+	LOAD x13, 13 * REGBYTES(\x)
+	LOAD x14, 14 * REGBYTES(\x)
+	LOAD x15, 15 * REGBYTES(\x)
 #ifndef __riscv_32e
-  LOAD x16, 11*REGBYTES(sp)
-	LOAD x17, 12*REGBYTES(sp)
-	LOAD x28, 13*REGBYTES(sp)
-	LOAD x29, 14*REGBYTES(sp)
-	LOAD x30, 15*REGBYTES(sp)
-	LOAD x31, 16*REGBYTES(sp)
+	LOAD x16, 16 * REGBYTES(\x)
+	LOAD x17, 17 * REGBYTES(\x)
+	LOAD x18, 18 * REGBYTES(\x)
+	LOAD x19, 19 * REGBYTES(\x)
+	LOAD x20, 20 * REGBYTES(\x)
+	LOAD x21, 21 * REGBYTES(\x)
+	LOAD x22, 22 * REGBYTES(\x)
+	LOAD x23, 23 * REGBYTES(\x)
+	LOAD x24, 24 * REGBYTES(\x)
+	LOAD x25, 25 * REGBYTES(\x)
+	LOAD x26, 26 * REGBYTES(\x)
+	LOAD x27, 27 * REGBYTES(\x)
+	LOAD x28, 28 * REGBYTES(\x)
+	LOAD x29, 29 * REGBYTES(\x)
+	LOAD x30, 30 * REGBYTES(\x)
+	LOAD x31, 31 * REGBYTES(\x)
 #endif
-
-
 #ifdef __riscv_flen
-  #if (__riscv_flen==64)
-/* Restore fp caller registers */
-	FPLOAD f0, (20*REGBYTES + 0*FPREGBYTES)(sp)
-	FPLOAD f1, (20*REGBYTES + 1*FPREGBYTES)(sp)
-	FPLOAD f2, (20*REGBYTES + 2*FPREGBYTES)(sp)
-	FPLOAD f3, (20*REGBYTES + 3*FPREGBYTES)(sp)
-	FPLOAD f4, (20*REGBYTES + 4*FPREGBYTES)(sp)
-	FPLOAD f5, (20*REGBYTES + 5*FPREGBYTES)(sp)
-	FPLOAD f6, (20*REGBYTES + 6*FPREGBYTES)(sp)
-	FPLOAD f7, (20*REGBYTES + 7*FPREGBYTES)(sp)
-	FPLOAD f10, (20*REGBYTES + 8*FPREGBYTES)(sp)
-	FPLOAD f11, (20*REGBYTES + 9*FPREGBYTES)(sp)
-	FPLOAD f12, (20*REGBYTES + 10*FPREGBYTES)(sp)
-	FPLOAD f13, (20*REGBYTES + 11*FPREGBYTES)(sp)
-	FPLOAD f14, (20*REGBYTES + 12*FPREGBYTES)(sp)
-	FPLOAD f15, (20*REGBYTES + 13*FPREGBYTES)(sp)
-	FPLOAD f16, (20*REGBYTES + 14*FPREGBYTES)(sp)
-	FPLOAD f17, (20*REGBYTES + 15*FPREGBYTES)(sp)
-	FPLOAD f28, (20*REGBYTES + 16*FPREGBYTES)(sp)
-	FPLOAD f29, (20*REGBYTES + 17*FPREGBYTES)(sp)
-	FPLOAD f30, (20*REGBYTES + 18*FPREGBYTES)(sp)
-	FPLOAD f31, (20*REGBYTES + 19*FPREGBYTES)(sp)
-  #endif
-#endif
-
-
-#ifdef __riscv_flen
-  #if(__riscv_flen == 64 )
-    addi sp, sp, 20*REGBYTES  + 20*FPREGBYTES
-  #else
-    addi sp, sp, 20*REGBYTES
-  #endif
+	addi \x, \x, REGBYTES * 68   //36+32
 #else
-// De-allocate the stack space
- addi sp, sp, 20*REGBYTES
+	addi \x, \x, REGBYTES * 36
 #endif
 .endm
 
-###############################################
-###############################################
-#restore caller registers
-.macro RESTORE_CONTEXT_EXCPT_X5
-  LOAD x1,  0*REGBYTES(sp)
-  LOAD x6,  2*REGBYTES(sp)
-  LOAD x7,  3*REGBYTES(sp)
-  LOAD x10, 4*REGBYTES(sp)
-  LOAD x11, 5*REGBYTES(sp)
-  LOAD x12, 6*REGBYTES(sp)
-  LOAD x13, 7*REGBYTES(sp)
-  LOAD x14, 8*REGBYTES(sp)
-  LOAD x15, 9*REGBYTES(sp)
-#ifndef __riscv_32e
-  LOAD x16, 10*REGBYTES(sp)
-  LOAD x17, 11*REGBYTES(sp)
-  LOAD x28, 12*REGBYTES(sp)
-  LOAD x29, 13*REGBYTES(sp)
-  LOAD x30, 14*REGBYTES(sp)
-  LOAD x31, 15*REGBYTES(sp)
-#endif
-.endm
 
-###############################################
-###############################################
-#restore caller registers
-.macro RESTORE_CONTEXT_ONLY_X5
-  LOAD x5,  1*REGBYTES(sp)
-.endm
-
-###############################################
-###############################################
-# Save the mepc and mstatus
-#
-.macro SAVE_EPC_STATUS
-  csrr x5, CSR_MEPC  
-  STORE x5,  16*REGBYTES(sp)
-  csrr x5, CSR_MSTATUS  
-  STORE x5,  17*REGBYTES(sp)
-  csrr x5, CSR_MSUBM  
-  STORE x5,  18*REGBYTES(sp)
-.endm
-
-###############################################
-###############################################
-# Restore the mepc and mstatus
-#
-.macro RESTORE_EPC_STATUS
-  LOAD x5,  16*REGBYTES(sp)
-  csrw CSR_MEPC, x5  
-  LOAD x5,  17*REGBYTES(sp)
-  csrw CSR_MSTATUS, x5  
-  LOAD x5,  18*REGBYTES(sp)
-  csrw CSR_MSUBM, x5  
+/**
+ * @brief 出栈csr寄存器（CSR_MSTATUS、CSR_MEPC、CSR_MSUBM、CSR_MCAUSE）
+ * @param x 目标sp寄存器
+ */
+.macro portRESTORE_CONTEXT_EXCP x
+	LOAD t0, 35*REGBYTES(\x)
+  	csrw CSR_MCAUSE, t0
+	LOAD t0, 34*REGBYTES(\x)
+  	csrw CSR_MSUBM, t0   
+	LOAD t0, 33*REGBYTES(\x)
+  	csrw CSR_MEPC, t0                                      
+  	LOAD t0, 32*REGBYTES(\x)
+  	csrw CSR_MSTATUS, t0                                   	  							                          
 .endm
 
 
+/**
+ * @brief 出栈浮点寄存器
+ * @param x 目标sp寄存器
+ */
+.macro pushVFPREGFILE x
+	fsw	f0, 36 * REGBYTES(\x)
+	fsw	f1, 37 * REGBYTES(\x)
+	fsw	f2, 38 * REGBYTES(\x)
+	fsw	f3, 39 * REGBYTES(\x)
+	fsw	f4, 40 * REGBYTES(\x)
+	fsw	f5, 41 * REGBYTES(\x)
+	fsw	f6, 42 * REGBYTES(\x)
+	fsw	f7, 43 * REGBYTES(\x)
+	fsw	f8, 44 * REGBYTES(\x)
+	fsw	f9, 45 * REGBYTES(\x)
+	fsw	f10, 46 * REGBYTES(\x)
+	fsw	f11, 47 * REGBYTES(\x)
+	fsw	f12, 48 * REGBYTES(\x)
+	fsw	f13, 49 * REGBYTES(\x)
+	fsw	f14, 50 * REGBYTES(\x)
+	fsw	f15, 51 * REGBYTES(\x)
+	fsw	f16, 52 * REGBYTES(\x)
+	fsw	f17, 53 * REGBYTES(\x)
+	fsw	f18, 54 * REGBYTES(\x)
+	fsw	f19, 55 * REGBYTES(\x)
+	fsw	f20, 56 * REGBYTES(\x)
+	fsw	f21, 57 * REGBYTES(\x)
+	fsw	f22, 58 * REGBYTES(\x)
+	fsw	f23, 59 * REGBYTES(\x)
+	fsw	f24, 60 * REGBYTES(\x)
+	fsw	f25, 61 * REGBYTES(\x)
+	fsw	f26, 62 * REGBYTES(\x)
+	fsw	f27, 63 * REGBYTES(\x)
+	fsw	f28, 64 * REGBYTES(\x)
+	fsw	f29, 65 * REGBYTES(\x)
+	fsw	f30, 66 * REGBYTES(\x)
+	fsw	f31, 67 * REGBYTES(\x)
+.endm
 
-###############################################
-###############################################
-// Trap entry point
-//
-  .section      .text.trap	
-  .align 6// In CLIC mode, the trap entry must be 64bytes aligned
-  .global trap_entry
-.weak trap_entry
+
+/**
+ * @brief 清理fpu状态寄存器
+ */
+.macro CONFIG_FS_CLEAN
+	li t0, (0x1 << 13)                                     //配置FS为clean状态
+	csrc mstatus, t0                   
+	li t0, (0x1 << 14)
+	csrs mstatus, t0
+.endm
+
+
+/* -------------------------------------------------------------------------------------------------------- */
+/**
+ * @brief trap入口函数
+ */
+    .section .text.trap	
+    .align 6// In CLIC mode, the trap entry must be 64bytes aligned
+    .global trap_entry
+    .weak trap_entry
 trap_entry:
-  // Allocate the stack space
- // addi sp, sp, -19*REGBYTES
+	pushREGFILE sp                                         //trap这里就直接使用当前栈，方便对当前位置进行异常分析，
+	                                                       //同时不担心(任务栈/中断栈/主栈)溢出，因为程序进入这里便不会返回了
+	portSAVE_CONTEXT_EXCP sp
 
-  // Save the caller saving registers (context)
-  SAVE_CONTEXT
-  // Save the MEPC/Mstatus/Msubm reg
-  SAVE_EPC_STATUS
+	csrr a0, mcause
+	mv a1, sp
+	jal ulSynchTrap
+	mv sp, a0
 
-     // Set the function argument
-  csrr a0, mcause
-  mv a1, sp
-     // Call the function
-  call handle_trap
-
-  // Restore the MEPC/Mstatus/Msubm reg
-  RESTORE_EPC_STATUS
-  // Restore the caller saving registers (context)
-  RESTORE_CONTEXT
-
-  // De-allocate the stack space
- // addi sp, sp, 19*REGBYTES
-  // Return to regular code
-  mret
+	portRESTORE_CONTEXT_EXCP sp
+	popREGFILE sp
+	mret
 
 
-###############################################
-###############################################
-// IRQ entry point
-//
-  .section      .text.irq	
-  .align 2
-  .global irq_entry
-.weak irq_entry
-irq_entry: // -------------> This label will be set to MTVT2 register
-  // Allocate the stack space
-  
-
-  SAVE_CONTEXT// Save 16 regs
-
-  //------This special CSR read operation, which is actually use mcause as operand to directly store it to memory
-  csrrwi  x0, CSR_PUSHMCAUSE, 17
-  //------This special CSR read operation, which is actually use mepc as operand to directly store it to memory
-  csrrwi  x0, CSR_PUSHMEPC, 18
-  //------This special CSR read operation, which is actually use Msubm as operand to directly store it to memory
-  csrrwi  x0, CSR_PUSHMSUBM, 19
- 
-service_loop:
-  //------This special CSR read/write operation, which is actually Claim the CLIC to find its pending highest
-  // ID, if the ID is not 0, then automatically enable the mstatus.MIE, and jump to its vector-entry-label, and
-  // update the link register 
-  csrrw ra, CSR_JALMNXTI, ra  //执行这条指令时，cpu会跳转到中断向量表对应中断位置执行，完成后退出到这里
-  
-  //RESTORE_CONTEXT_EXCPT_X5
-
-  #---- Critical section with interrupts disabled -----------------------
-  DISABLE_MIE # Disable interrupts 
-
-  LOAD x5,  19*REGBYTES(sp)
-  csrw CSR_MSUBM, x5  
-  LOAD x5,  18*REGBYTES(sp)
-  csrw CSR_MEPC, x5  
-  LOAD x5,  17*REGBYTES(sp)
-  csrw CSR_MCAUSE, x5  
-
-
-  RESTORE_CONTEXT
-
-  
-  // Return to regular code
-  mret
-
-
+/* -------------------------------------------------------------------------------------------------------- */
+/**
+ * @brief irq入口函数
+ */
+    .section .text.irq	
+    .align 2
+    .global irq_entry
+    .weak irq_entry
+irq_entry:
+#if USE_MSP
+	csrrw sp, CSR_MSCRATCHCSWL, sp
 #endif
+  	pushREGFILE sp                                         //保存通用寄存器
+	portSAVE_CONTEXT_EXCP sp             
+#ifdef __riscv_flen
+	csrr t2, mstatus
+	li t0, (0x3 << 13)
+	and t1, t2, t0
+	bne t1, t0, 1f                                         //浮点寄存器状态为Dirty状态，则保存浮点寄存器, 否则不用保存
+	pushVFPREGFILE sp
+1:	
+	CONFIG_FS_CLEAN  
+#endif
+
+  	csrrw ra, CSR_JALMNXTI, ra                             //跳转到中断向量表入口地址，中断处理返回时继续回到此处
+
+  	csrc CSR_MSTATUS, MSTATUS_MIE                          //此时中断处理完毕，中断关闭，注意mret退出中断时将恢复从mpie恢复mie，
+	  									                   //因此在中断内部修改mie仅会保持中断mret前，退出中断将恢复为进中断前状态
+#ifdef __riscv_flen
+	csrr t2, mstatus
+	li t0, (0x3 << 13)
+	and t1, t2, t0
+	bne t1, t0, 2f                                         //浮点寄存器状态为Dirty状态，则恢复浮点寄存器, 否则不用恢复
+	popVFPREGFILE sp
+2:
+#endif
+	portRESTORE_CONTEXT_EXCP sp
+#ifdef __riscv_flen
+	CONFIG_FS_CLEAN
+#endif
+  	popREGFILE sp
+#if USE_MSP
+	csrrw sp, CSR_MSCRATCHCSWL, sp
+#endif
+  	mret

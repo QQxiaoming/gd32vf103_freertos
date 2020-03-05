@@ -70,6 +70,12 @@
 #ifndef FREERTOS_CONFIG_H
 #define FREERTOS_CONFIG_H
 
+#ifndef __ASSEMBLER__
+#include "SYSVIEW_Serial_Conf.h"
+#if CONFIG_SYSTEMVIEW_EN
+#include "SEGGER_SYSVIEW_FreeRTOS.h"
+#endif
+#endif
 #include "gd32vf103.h"
 
 /* Here is a good place to include header files that are required across
@@ -129,7 +135,7 @@ your application. */
 
 /* Interrupt nesting behaviour configuration. */
 #define configPRIO_BITS       		            (4UL)
-#define configLIBRARY_LOWEST_INTERRUPT_PRIORITY			0x0
+#define configLIBRARY_LOWEST_INTERRUPT_PRIORITY			0x1
 #define configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY	0xe
 #define configKERNEL_INTERRUPT_PRIORITY                 ( configLIBRARY_LOWEST_INTERRUPT_PRIORITY << (8 - configPRIO_BITS) )
 #define configMAX_SYSCALL_INTERRUPT_PRIORITY            ( configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY << (8 - configPRIO_BITS) )
