@@ -5072,6 +5072,9 @@ const TickType_t xConstTickCount = xTickCount;
 			{
 				/* Wake time has overflowed.  Place this item in the overflow
 				list. */
+				#if CONFIG_SYSTEMVIEW_EN   
+				traceMOVED_TASK_TO_OVERFLOW_DELAYED_LIST();
+				#endif
 				vListInsert( pxOverflowDelayedTaskList, &( pxCurrentTCB->xStateListItem ) );
 			}
 			else
