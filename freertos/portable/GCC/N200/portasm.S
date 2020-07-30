@@ -222,11 +222,11 @@
 /**
  * @brife 清理fpu状态寄存器
  */
-.macro CONFIG_FS_CLEAN
-	li t0, (0x1 << 13)
-	csrc mstatus,t0                   
+.macro CONFIG_FS_CLEAN       
 	li t0, (0x1 << 14)
 	csrs mstatus,t0
+	li t0, (0x1 << 13)
+	csrc mstatus,t0   
 .endm
 
 
@@ -237,17 +237,38 @@
 	.global trap_entry
 	.align 6
 trap_entry:
-	pushREGFILE sp
-
+#if USE_MSP
+	csrrw sp, CSR_MSCRATCHCSWL, sp
+#endif
+	pushREGFILE sp  
+#ifdef USE_MSP
+    csrr a1, CSR_MSUBM
+    andi a1, a1, (0x3 << 8)
+    bnez a1, 8f
+	csrr a1, CSR_MSCRATCH
+	j 9f
+8:
+#endif
+	mv a1, sp 
+#ifdef __riscv_flen
+	addi a1, a1, REGBYTES * 68   //36+32
+#else
+	addi a1, a1, REGBYTES * 36
+#endif
+9:
+	STORE a1, 3 * REGBYTES(sp)                                     
 	portSAVE_CONTEXT_EXCP sp
 
 	csrr a0, mcause
 	mv a1, sp
 	jal ulSynchTrap
-	mv sp,a0
+	mv sp, a0
 
 	portRESTORE_CONTEXT_EXCP sp
 	popREGFILE sp
+#if USE_MSP
+	csrrw sp, CSR_MSCRATCHCSWL, sp
+#endif
 	mret
 
 
@@ -289,9 +310,6 @@ int_loop:
 2:
 #endif
 	portRESTORE_CONTEXT_EXCP sp
-#ifdef __riscv_flen
-	CONFIG_FS_CLEAN
-#endif
   	popREGFILE sp
 #if USE_MSP
 	csrrw sp, CSR_MSCRATCHCSWL, sp
@@ -396,7 +414,6 @@ _vPortYield:
 	bne t1, t0, 2f
 	popVFPREGFILE sp
 2:
-	CONFIG_FS_CLEAN
 #endif
 	popREGFILE sp
 	mret
