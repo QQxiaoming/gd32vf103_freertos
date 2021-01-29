@@ -132,9 +132,9 @@ void eclic_init ( uint32_t num_irq )
   vuint32_t * ptr;
 
   vuint32_t * base = (vuint32_t*)(ECLIC_ADDR_BASE + ECLIC_INT_IP_OFFSET);
-  vuint32_t * upper = (vuint32_t*)(base + num_irq);
+  vuint32_t * upper = (vuint32_t*)(base + num_irq*4);
 
-  for (ptr = base; ptr < upper; ptr=ptr+4){
+  for (ptr = base; ptr < upper; ptr=ptr+1){
     *ptr = 0;
   }
 }
