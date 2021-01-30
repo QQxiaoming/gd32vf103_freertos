@@ -1,4 +1,4 @@
-#include "riscv_encoding.h"
+﻿#include "riscv_encoding.h"
 #include "riscv_bits.h"
 #include "n200_timer.h"
 #include "n200_eclic.h"
@@ -274,7 +274,7 @@ trap_entry:
 
 /* -------------------------------------------------------------------------------------------------------- */
 /**
- * @brife trq入口函数
+ * @brife irq入口函数
  */
     .align 2
     .global irq_entry
@@ -296,8 +296,6 @@ irq_entry:
 
 int_loop:
   	csrrw ra, CSR_JALMNXTI, ra
-  	csrrsi a0, CSR_MNXTI, MSTATUS_MIE
-  	bnez a0, int_loop
 
   	csrc CSR_MSTATUS, MSTATUS_MIE
 
