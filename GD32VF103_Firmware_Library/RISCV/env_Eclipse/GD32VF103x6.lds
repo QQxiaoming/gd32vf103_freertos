@@ -144,6 +144,7 @@ SECTIONS
     *(.srodata.cst4)
     *(.srodata.cst2)
     *(.srodata .srodata.*)
+	. = ALIGN(8);
   } >ram AT>flash 
 
   . = ALIGN(4);
