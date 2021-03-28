@@ -27,7 +27,7 @@ TOP_DIR = $(PROJECTBASE)
 #######################################
 # binaries
 #######################################
-PREFIX    = $(TOP_DIR)/tools/riscv-none-gcc/8.2.0-2.2-20190521-0004/bin/riscv-none-embed-
+PREFIX    = $(TOP_DIR)/tools/gcc/bin/riscv-nuclei-elf-
 CC        = $(PREFIX)gcc
 AS        = $(PREFIX)gcc -x assembler-with-cpp
 OBJCOPY   = $(PREFIX)objcopy
