@@ -1,3 +1,5 @@
+[![CI](https://github.com/QQxiaoming/gd32vf103_freertos/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/QQxiaoming/gd32vf103_freertos/actions/workflows/ci.yml)
+
 # gd32vf103_freertos
 
 在GD32VF103移植freertos，linux环境开发

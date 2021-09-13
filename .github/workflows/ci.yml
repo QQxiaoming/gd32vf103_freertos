@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+    paths-ignore:
+      - 'doc/**'
+      - 'tutorial/**'
+      - 'README.md'
+      - '.readthedocs.yaml'
+  pull_request:
+    branches: [ master ]
+    paths-ignore:
+      - 'doc/**'
+      - 'tutorial/**'
+      - 'README.md'
+      - '.readthedocs.yaml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install prerequisites
+        run: |
+          sudo apt update
+          sudo apt install -y wget make cmake gcc device-tree-compiler bison flex
+
+      - name: Download and extract prebuilt toolchain
+        run: |
+          RISCV_NEWLIBC_TOOLCHAIN=/opt/gcc-riscv64-unknown-elf
+          wget https://static.dev.sifive.com/dev-tools/freedom-tools/v2020.12/riscv64-unknown-elf-toolchain-10.2.0-2020.12.8-x86_64-linux-ubuntu14.tar.gz
+          tar -xzf riscv64-unknown-elf-toolchain-10.2.0-2020.12.8-x86_64-linux-ubuntu14.tar.gz
+          mv riscv64-unknown-elf-toolchain-10.2.0-2020.12.8-x86_64-linux-ubuntu14 $RISCV_NEWLIBC_TOOLCHAIN
+          rm -f *.tar.gz
+          # strip binaries
+          cd /opt
+          set +e
+          for i in `find libexec bin -type f`
+          do
+          strip -s $i
+          done
+          cd -
+          $RISCV_NEWLIBC_TOOLCHAIN/bin/riscv64-unknown-elf-gcc -v
+
+      - name: Build all
+        run: |
+          make
+          tar -czf toolchain.tar.gz /opt/gcc-riscv64-unknown-elf
+      
+      - name: Upload build asserts
+        uses: actions/upload-artifact@v2.2.4
+        with:
+          name: gd32vf103.elf
+          path: |
+            ./build/gd32vf103.elf
+      
+      - name: Upload prebuilt toolchain
+        uses: actions/upload-artifact@v2.2.4
+        with:
+          name: prebuilt_toolchain
+          path: |
+            toolchain.tar.gz
+      
+      - name: Run tests
+        run: |
+          if ls ./build | grep "gd32vf103.elf" ; then echo "Pass"; else echo "Failed" && exit 1; fi; 
+
