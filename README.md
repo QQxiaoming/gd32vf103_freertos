@@ -1,4 +1,9 @@
 [![CI](https://github.com/QQxiaoming/gd32vf103_freertos/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/QQxiaoming/gd32vf103_freertos/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/qqxiaoming/gd32vf103_freertos.svg?colorB=f48041&style=flat-square)](https://github.com/QQxiaoming/gd32vf103_freertos)
+[![GitHub stars](https://img.shields.io/github/stars/QQxiaoming/gd32vf103_freertos.svg)](https://github.com/QQxiaoming/gd32vf103_freertos)
+[![GitHub forks](https://img.shields.io/github/forks/QQxiaoming/gd32vf103_freertos.svg)](https://github.com/QQxiaoming/gd32vf103_freertos)
+[![Gitee stars](https://gitee.com/QQxiaoming/gd32vf103_freertos/badge/star.svg?theme=dark)](https://gitee.com/QQxiaoming/gd32vf103_freertos)
+[![Gitee forks](https://gitee.com/QQxiaoming/gd32vf103_freertos/badge/fork.svg?theme=dark)](https://gitee.com/QQxiaoming/gd32vf103_freertos)
 
 # gd32vf103_freertos
 
