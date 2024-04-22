@@ -51,14 +51,14 @@ jobs:
           tar -czf toolchain.tar.gz /opt/gcc-riscv64-unknown-elf
       
       - name: Upload build asserts
-        uses: actions/upload-artifact@v4.3.2
+        uses: actions/upload-artifact@v4.3.3
         with:
           name: gd32vf103.elf
           path: |
             ./build/gd32vf103.elf
       
       - name: Upload prebuilt toolchain
-        uses: actions/upload-artifact@v4.3.2
+        uses: actions/upload-artifact@v4.3.3
         with:
           name: prebuilt_toolchain
           path: |
